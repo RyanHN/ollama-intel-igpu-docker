@@ -1,0 +1,58 @@
+services:
+  ollama:
+    image: intelanalytics/ipex-llm-inference-cpp-xpu:latest
+    container_name: ollama
+    devices:
+      - /dev/dri/card1:/dev/dri/card1
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    group_add:
+      - "993"
+      - "44"
+    volumes:
+      - /usr/share/ollama/.ollama/models:/root/.ollama/models
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_INTEL_GPU=true
+      - DEVICE=iGPU
+      - OLLAMA_NUM_GPU=999
+      - OLLAMA_FLASH_ATTENTION=true
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      - OLLAMA_CONTEXT_LENGTH=8192
+      - ZES_ENABLE_SYSMAN=1
+      - SYCL_CACHE_PERSISTENT=1
+      - SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS=1
+      - GGML_SYCL_DISABLE_OPT=0
+      - GGML_SYCL_DISABLE_GRAPH=0
+      - GGML_SYCL_F16=1
+      - no_proxy=localhost,127.0.0.1
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    command: >
+      sh -c 'mkdir -p /llm/ollama &&
+             cd /llm/ollama &&
+             init-ollama &&
+             env ZES_ENABLE_SYSMAN=1
+                 SYCL_CACHE_PERSISTENT=1
+                 SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS=1
+                 GGML_SYCL_F16=1
+                 OLLAMA_FLASH_ATTENTION=true
+                 OLLAMA_KV_CACHE_TYPE=q8_0
+                 OLLAMA_CONTEXT_LENGTH=8192
+             ./ollama serve'
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3100:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://10.5.1.26:11434
+    volumes:
+      - open-webui_data:/app/backend/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  open-webui_data:
